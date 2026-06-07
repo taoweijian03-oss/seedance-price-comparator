@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seedance 2.0 视频单价比较器</title>
+  <meta name="description" content="比较不同网站的 Seedance 2.0 视频生成价格，并统一换算为每秒成本。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">AI Video Pricing Tool</p>
+        <h1>Seedance 2.0 视频每秒单价比较器</h1>
+        <p class="hero-text">
+          把不同网站的订阅、积分包、按次计费统一换算成「每秒成本」，方便你判断哪个平台更划算。
+        </p>
+      </div>
+
+      <div class="summary-grid" aria-label="价格摘要">
+        <article class="summary-card">
+          <span>最低每秒</span>
+          <strong id="bestPrice">-</strong>
+        </article>
+        <article class="summary-card">
+          <span>最低平台</span>
+          <strong id="bestProvider">-</strong>
+        </article>
+        <article class="summary-card">
+          <span>当前方案</span>
+          <strong id="scenarioLabel">-</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <aside class="control-panel" aria-label="比较条件">
+        <div class="panel-heading">
+          <h2>比较条件</h2>
+          <button class="icon-button" id="resetButton" type="button" title="重置筛选" aria-label="重置筛选">
+            <span aria-hidden="true">↺</span>
+          </button>
+        </div>
+
+        <label class="field">
+          <span>模型</span>
+          <select id="modelSelect">
+            <option value="seedance-2.0">Seedance 2.0</option>
+            <option value="seedance-2.0-pro">Seedance 2.0 Pro</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>生成模式</span>
+          <select id="modeSelect">
+            <option value="text-to-video">文生视频</option>
+            <option value="image-to-video">图生视频</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>分辨率</span>
+          <select id="resolutionSelect">
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="4k">4K</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>视频时长 <strong id="durationValue">5 秒</strong></span>
+          <input id="durationInput" type="range" min="3" max="15" value="5" step="1">
+        </label>
+
+        <label class="field">
+          <span>输出币种</span>
+          <select id="currencySelect">
+            <option value="USD">美元 USD</option>
+            <option value="CNY">人民币 CNY</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>计费方式</span>
+          <select id="billingSelect">
+            <option value="all">全部</option>
+            <option value="credit_pack">积分包</option>
+            <option value="subscription">订阅</option>
+            <option value="pay_as_you_go">按量付费</option>
+          </select>
+        </label>
+
+        <label class="switch-row">
+          <input id="trustedOnly" type="checkbox">
+          <span>只看高可信度价格</span>
+        </label>
+      </aside>
+
+      <section class="results-panel">
+        <div class="toolbar">
+          <div>
+            <h2>平台价格排行</h2>
+            <p id="resultCount">0 个可比较方案</p>
+          </div>
+          <div class="toolbar-actions">
+            <button class="text-button" id="exportButton" type="button">导出 CSV</button>
+            <button class="text-button" id="addSampleButton" type="button">录入示例</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>平台</th>
+                <th>套餐</th>
+                <th>原始价格</th>
+                <th>消耗规则</th>
+                <th>每秒成本</th>
+                <th>单条成本</th>
+                <th>可信度</th>
+                <th>更新时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="pricingBody"></tbody>
+          </table>
+        </div>
+
+        <div class="empty-state" id="emptyState" hidden>
+          没有符合条件的价格方案。可以降低筛选条件，或在脚本数据里补充该场景的规则。
+        </div>
+      </section>
+    </section>
+
+    <section class="editor-panel" id="editorPanel" hidden>
+      <div class="toolbar">
+        <div>
+          <h2>快速录入</h2>
+          <p>录入和预设修改会保存到本机浏览器，可随时编辑或恢复预设。</p>
+        </div>
+        <button class="icon-button" id="closeEditorButton" type="button" title="关闭" aria-label="关闭录入面板">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+      <form class="editor-grid" id="providerForm">
+        <input name="entryId" type="hidden">
+        <input name="entryType" type="hidden" value="user">
+        <label class="field">
+          <span>平台名称</span>
+          <input name="provider" required placeholder="例如 Example AI">
+        </label>
+        <label class="field">
+          <span>套餐名称</span>
+          <input name="plan" required placeholder="例如 1000 积分包">
+        </label>
+        <label class="field">
+          <span>价格</span>
+          <input name="price" type="number" min="0" step="0.01" required placeholder="19.9">
+        </label>
+        <label class="field">
+          <span>币种</span>
+          <select name="currency">
+            <option value="USD">USD</option>
+            <option value="CNY">CNY</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>套餐积分</span>
+          <input name="credits" type="number" min="1" step="1" placeholder="积分包填写，例如 1000">
+        </label>
+        <label class="field">
+          <span>每秒消耗积分</span>
+          <input name="creditsPerSecond" type="number" min="0.01" step="0.01" placeholder="积分制填写，例如 8">
+        </label>
+        <label class="field">
+          <span>单条成本</span>
+          <input name="costPerGeneration" type="number" min="0.01" step="0.0001" placeholder="按条估算填写，例如 0.23">
+        </label>
+        <label class="field">
+          <span>价格页链接</span>
+          <input name="url" placeholder="https://example.com/pricing">
+        </label>
+        <label class="field">
+          <span>备注</span>
+          <input name="note" placeholder="价格来源、估算规则或核实说明">
+        </label>
+        <button class="primary-button" id="saveEntryButton" type="submit">加入比较</button>
+      </form>
+    </section>
+
+    <section class="notes-panel" id="notesPanel">
+      <div class="toolbar">
+        <div>
+          <h2>待核实平台</h2>
+          <p>这些平台查到了入口或价格线索，但缺少公开的视频消耗规则，暂不进入每秒排行。</p>
+        </div>
+      </div>
+      <div class="note-grid" id="pendingSources"></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
